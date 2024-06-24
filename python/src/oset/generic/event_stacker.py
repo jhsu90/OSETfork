@@ -16,11 +16,8 @@ def event_stacker(signal, event_indexes, event_bounds, method="unnormalized"):
         method (str), optional: Stacking method (default: 'unnormalized').
 
     Returns:
-        stacked_events (ndarray):
-            A matrix of the form N x event_bounds, where N = length(event_indexes).
-        num_non_zeros : numpy.ndarray
-            Number of stacked samples per event (equal to event_bounds except for the boundary events).
-            Used to find the number of zero-padded samples per event.
+        First element is a matrix of the form N x event_bounds, where N = length(event_indexes). The Second element is the
+        number of stacked samples per event (equal to event_bounds except for the boundary events). Used to find the number of zero-padded samples per event.
 
     Note:
         - If event_bounds is provided as an even integer, the function adjusts it
