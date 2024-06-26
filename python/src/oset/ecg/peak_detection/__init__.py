@@ -5,3 +5,4 @@ from .peak_det_modified_pan_tompkins import peak_det_modified_pan_tompkins
 from .peak_det_pan_tompkins import peak_det_pan_tompkins
 from .peak_det_simple import peak_det_simple
 from .peak_det_adaptive_hr import peak_det_adaptive_hr
+from .robust_weighted_average import robust_weighted_average
