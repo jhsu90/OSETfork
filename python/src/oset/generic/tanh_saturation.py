@@ -21,13 +21,13 @@ def tanh_saturation(x, ksigma):
     https://github.com/alphanumericslab/OSET
     """
     # Compute the scaling factor based on the standard deviation of each channel
-    alpha = ksigma * np.std(x, axis=0, keepdims=True)
+    alpha = ksigma * np.std(x, axis=1, ddof=1, keepdims=True)
 
     # Convert to a column vector
     alpha = alpha.flatten()
 
     # Scale the input data and apply the tanh function to saturate outliers
-    y = (np.diag(alpha) * np.tanh(np.diag(1.0 / alpha) * x))[0]
+    y = (np.diag(alpha) @ np.tanh(np.diag(1.0 / alpha) @ x))
     return y
 
 
