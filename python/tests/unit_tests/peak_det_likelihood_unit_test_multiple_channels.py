@@ -17,8 +17,8 @@ def peak_det_likelihood_unit_test_multiple_channels():
     ml = runMatLab()
     py = runPython()
     return testing.compare_number_arrays(
-        py[0],
-        ml[0]
+        py[1] + 1,
+        np.array(ml[1][0]).astype(int)[0]
     )
 
 def runMatLab():
@@ -28,7 +28,7 @@ def runMatLab():
     params['filter_type'] = 'BANDPASS_FILTER'
     eng.addpath("../../../matlab/tools/ecg")
     eng.addpath("../../../matlab/tools/generic")
-    return eng.peak_det_likelihood(x, float(fs), params)
+    return eng.peak_det_likelihood(x, float(fs), params, nargout=2)
 
 def runPython():
     return peak_det_likelihood(mat, fs)
