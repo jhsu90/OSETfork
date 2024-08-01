@@ -31,13 +31,13 @@ def runMatLab():
     return eng.peak_det_likelihood(x, float(fs), params)
 
 def runPython():
-    return peak_det_likelihood(np.array(mat), fs)
+    return peak_det_likelihood(mat, fs)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="""This is a unit test for peak_det_likelihood"""
     )
     args = parser.parse_args()
-    print(peak_det_likelihood_unit_test())
+    print(peak_det_likelihood_unit_test_multiple_channels())
 
 
