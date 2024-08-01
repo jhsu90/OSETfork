@@ -6,6 +6,29 @@ from scipy.signal import filtfilt, medfilt, butter
 
 
 def peak_det_likelihood(data, fs, params=None):
+    """
+    A probabilistic R-peak detector based on local peak selection and refinement using multiple methods
+    NOTE: Under development, generally matches the result of peak_det_likelihood.m, yet discrepancies exists.
+    Currently only supports filter type: BANDPASS_FILTER.
+    Args:
+        data (ndarray): single or multichannel ECG signal with row-wise channels
+        fs (float): sampling frequency
+        params: check matlab/tools/ecg/peak_det_likelihood.m for detailed description
+
+    Returns:
+        peaks: a vector with the signal length with 1's at the estimated R-peaks
+        peak_indexes: the estimated R-peak indexes
+        qrs_likelihood: the R-peak likelihood vector (with maximums at the
+        estimated R-peaks useful for classification and scoring purposes)
+
+    Revision History:
+        2024: Translated to Python from Matlab
+
+    Jasper Hsu, 2024
+    The Open-Source Electrophysiological Toolbox
+    https://github.com/alphanumericslab/OSET
+
+    """
     # Default parameter setup
     if params is None:
         params = {}
