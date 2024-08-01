@@ -58,7 +58,7 @@ def event_stacker(signal, event_indexes, event_bounds, method="unnormalized"):
             left_wing_len = event_indexes[i] - start
             right_wing_len = stop - event_indexes[i]
 
-            stacked_events[i, center_index - left_wing_len : center_index + right_wing_len + 1] = signal[start:stop]
+            stacked_events[i, center_index - left_wing_len : center_index + right_wing_len] = signal[start:stop]
             num_non_zeros[i] = stop - start
 
     elif isinstance(event_bounds, list) and len(event_bounds) == 2:

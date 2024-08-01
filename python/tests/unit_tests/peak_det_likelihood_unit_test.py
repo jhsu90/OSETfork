@@ -11,13 +11,14 @@ from oset.ecg.peak_detection.peak_det_likelihood import peak_det_likelihood
 
 mat = scipy.io.loadmat("../../../datasets/sample-data/SampleECGData.mat")["ECGdata"]
 fs = 1000
-
+mat = mat[:, 0: 60 * fs]
 
 def peak_det_likelihood_unit_test():
-    data = scipy.io.loadmat('/Users/jasper/Desktop/My_Life/GaTech/CliffordLab/codes/OSETfork/datasets/sample-data/data_filtered_env1.mat')
-    double_value_matlab = data['data_filtered_env1'][0]
-    double_value_python, _ = peak_det_likelihood(np.array(mat), fs)
-    return testing.compare_number_arrays(double_value_python, double_value_matlab)
+    data = scipy.io.loadmat('/Users/jasper/Desktop/My_Life/GaTech/CliffordLab/codes/OSETfork/datasets/sample-data/peak.mat')
+    peak_matlab = data['peak'][0]
+    peak_python, _, _, _ = peak_det_likelihood(np.array(mat), fs)
+    i = 11
+    return testing.compare_number_arrays(peak_python, peak_matlab)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
