@@ -8,8 +8,11 @@ from scipy.signal import filtfilt, medfilt, butter
 def peak_det_likelihood(data, fs, params=None):
     """
     A probabilistic R-peak detector based on local peak selection and refinement using multiple methods
+
     NOTE: Under development, generally matches the result of peak_det_likelihood.m, yet discrepancies exists.
     Currently only supports filter type: BANDPASS_FILTER.
+    Errors occur for single channel signals, will fix soon.
+
     Args:
         data (ndarray): single or multichannel ECG signal with row-wise channels
         fs (float): sampling frequency
