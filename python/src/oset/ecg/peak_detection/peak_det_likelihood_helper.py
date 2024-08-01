@@ -4,15 +4,28 @@ from oset.generic.event_stacker import event_stacker
 from oset.generic.lp_filter.lp_filter_zero_phase import lp_filter_zero_phase
 from oset.ecg.peak_detection.robust_weighted_average import robust_weighted_average
 from scipy.signal import convolve
+from scipy.stats import mode
 
 
 # detect local peaks, which have nearby peaks with absolute higher amplitudes
 def find_closest_peaks(
     data, peak_indexes_candidates, peak_search_half_wlen, operation_mode, plot_results
 ):
-    sig_len = len(data)
-    polarity = np.sign(data[peak_indexes_candidates]) + 1
-    polarity_dominant = np.bincount(polarity.astype(int)).argmax() - 1
+    if len(data.shape) > 1:
+        sig_len = len(data[0])
+    else:
+        sig_len = len(data)
+    # flattened_data = data.flatten(order='F')  # Use column-major order to mimic MATLAB's behavior
+    #
+    # # Get the elements at the specified peak indexes
+    # selected_data = data.flatten(order='F')[peak_indexes_candidates]
+    #
+    # # Determine the polarity of these elements
+    polarity = np.sign(data.flatten(order='F')[peak_indexes_candidates])
+    polarity_dominant, count = mode(polarity)
+    # polarity_dominant = polarity_dominant[0]
+    # polarity = np.sign(data[peak_indexes_candidates]) + 1
+    # polarity_dominant = np.bincount(polarity.astype(int)).argmax() - 1
     peak_indexes = []
 
     for jj in range(0, len(peak_indexes_candidates)):
@@ -20,24 +33,27 @@ def find_closest_peaks(
         segment_end = min(sig_len, peak_indexes_candidates[jj] + peak_search_half_wlen)
         segment = data[segment_start:segment_end]
         segment_first_index = segment_start
+        try:
+            if operation_mode == "AUTO-BEAT-WISE":
+                I_max_min = np.argmax(polarity[jj] * segment)
+                pk_indx = I_max_min + segment_first_index
+            elif operation_mode == "AUTO":
+                I_max_min = np.argmax(polarity_dominant * segment)
+                pk_indx = I_max_min + segment_first_index
+            elif operation_mode == "POS":
+                I_max = np.argmax(segment)
+                pk_indx = I_max + segment_first_index
+            elif operation_mode == "NEG":
+                I_min = np.argmin(segment)
+                pk_indx = I_min + segment_first_index
+            else:
+                raise ValueError("Undefined peak sign detection mode.")
 
-        if operation_mode == "AUTO-BEAT-WISE":
-            I_max_min = np.argmax(polarity[jj] * segment)
-            pk_indx = I_max_min + segment_first_index
-        elif operation_mode == "AUTO":
-            I_max_min = np.argmax(polarity_dominant * segment)
-            pk_indx = I_max_min + segment_first_index
-        elif operation_mode == "POS":
-            I_max = np.argmax(segment)
-            pk_indx = I_max + segment_first_index
-        elif operation_mode == "NEG":
-            I_min = np.argmin(segment)
-            pk_indx = I_min + segment_first_index
-        else:
-            raise ValueError("Undefined peak sign detection mode.")
+        except ValueError:
+            pk_indx = segment_first_index
 
         peak_indexes.append(pk_indx)
-
+    peak_indexes = np.array(peak_indexes)
     peaks = np.zeros(sig_len)
     peaks[peak_indexes] = 1
 
@@ -89,6 +105,8 @@ def refine_peaks_too_close_low_amp(
                 peak_indexes.append(pk_index_candidate)
         else:
             raise ValueError("Undefined peak sign detection mode.")
+
+    peak_indexes = np.array(peak_indexes)
     peaks = np.zeros(sig_len)
     peaks[peak_indexes] = 1
 
@@ -135,6 +153,8 @@ def refine_peaks_low_amp_peaks_prctile(
         idx for idx in peak_indexes if data_env[idx] >= bumps_amp_threshold
     ]
 
+    peak_indexes_refined = np.array(peak_indexes_refined)
+
     peaks = np.zeros(len(data_env))
     peaks[peak_indexes_refined] = 1
 
@@ -179,6 +199,8 @@ def refine_peaks_low_amp_peaks_prctile_fraction(
     )
     I_omit = peak_amps < threshold
     peak_indexes_refined = np.delete(peak_indexes_refined, np.where(I_omit))
+
+    peak_indexes_refined = np.array(peak_indexes_refined)
 
     peaks = np.zeros(len(data))
     peaks[peak_indexes_refined] = 1
@@ -260,6 +282,7 @@ def refine_peaks_high_amp_std(data, peak_indexes, k_sigma, plot_results):
 def refine_peaks_waveform_similarity(data, peak_indexes, pparams, method, plot_results):
     event_width = 2 * int(np.round(np.median(np.diff(peak_indexes)) / 2)) + 1
     stacked_beats, _ = event_stacker(data, peak_indexes, event_width)
+    I_omit_set = 0
 
     # stacked_beats = (np.array([data[idx - event_width // 2: idx + event_width // 2 + 1] for idx in peak_indexes]))
 
@@ -273,7 +296,7 @@ def refine_peaks_waveform_similarity(data, peak_indexes, pparams, method, plot_r
         )
 
     elif method == "CORRCOEF":
-        rho_beats = np.corrcoef(stacked_beats.T)
+        rho_beats = np.corrcoef(stacked_beats)
         avg_beat_corr_with_others = np.nanmedian(
             rho_beats + np.diag(np.full(rho_beats.shape[0], np.nan)), axis=0
         )
@@ -282,25 +305,26 @@ def refine_peaks_waveform_similarity(data, peak_indexes, pparams, method, plot_r
         )
 
     elif method == "ABS-CORRCOEF":
-        rho_beats = np.corrcoef(stacked_beats.T)
+        rho_beats = np.corrcoef(stacked_beats)
         avg_beat_corr_with_others = np.nanmean(
             rho_beats + np.diag(np.full(rho_beats.shape[0], np.nan)), axis=0
         )
         threshold = pparams["beat_corrcoef_th"]
 
     elif method == "NEG-CORR":
-        rho_beats = np.corrcoef(stacked_beats.T)
+        rho_beats = np.corrcoef(stacked_beats)
         avg_beat_corr_with_others = np.nanmean(
             rho_beats + np.diag(np.full(rho_beats.shape[0], np.nan)), axis=0
         )
         threshold = 0
 
     elif method == "BEAT-STD":
-        rho_beats = np.corrcoef(stacked_beats.T)
+        rho_beats = np.corrcoef(stacked_beats)
         avg_beat_corr_with_others = np.nanmean(
             rho_beats + np.diag(np.full(rho_beats.shape[0], np.nan)), axis=0
         )
-        threshold = np.mean(avg_beat_corr_with_others) + pparams["k_sigma"] * np.std(
+        I_omit_set = 1
+        I_omit = np.abs(avg_beat_corr_with_others - np.mean(avg_beat_corr_with_others)) > pparams["k_sigma"] * np.std(
             avg_beat_corr_with_others
         )
 
@@ -308,7 +332,8 @@ def refine_peaks_waveform_similarity(data, peak_indexes, pparams, method, plot_r
         raise ValueError("undefined mode")
 
     # Apply the threshold to determine which beats to omit
-    I_omit = avg_beat_corr_with_others < threshold
+    if not I_omit_set:
+        I_omit = avg_beat_corr_with_others < threshold
 
     peak_indexes_refined = np.delete(peak_indexes, np.where(I_omit))
     peaks = np.zeros(len(data))
@@ -444,7 +469,7 @@ def refine_peaks_low_snr_beats(data, peak_indexes, mmode, plot_results):
         stacked_beats
     )  # robust_weighted_average under construction
     # ECG_robust_mean = np.mean(stacked_beats, axis=1)
-    ECG_robust_mean_replicated = np.ones(len(peak_indexes), dtype=int) * ECG_robust_mean
+    ECG_robust_mean_replicated = np.ones((len(peak_indexes), 1), dtype=int) @ ECG_robust_mean
     noise = stacked_beats - ECG_robust_mean_replicated
     snr_initial = (
         20
@@ -456,12 +481,12 @@ def refine_peaks_low_snr_beats(data, peak_indexes, mmode, plot_results):
         / np.linalg.norm(noise)
     )
 
-    included_indexes = list(range((peak_indexes)))
+    included_indexes = list(range(len(peak_indexes)))
     for itr in range(max_itr):
         num_includes_beats = len(peak_indexes[included_indexes])
         rr_std = np.std(np.diff(peak_indexes[included_indexes]))
-        snr_excluding_this_beat = np.zeros((1, num_includes_beats))
-        rr_std_excluding_this_beat = np.zeros((1, num_includes_beats))
+        snr_excluding_this_beat = np.zeros(num_includes_beats)
+        rr_std_excluding_this_beat = np.zeros(num_includes_beats)
         for p in range(num_includes_beats):
             all_included_indexes_but_this_beat = included_indexes.copy()
             all_included_indexes_but_this_beat.remove(
@@ -595,6 +620,7 @@ def refine_peaks_filter_energy_impacted_beats(
     )
 
     peak_indexes_refined = peak_indexes[I_include]
+    peak_indexes_refined = np.array(peak_indexes_refined)
     peaks = np.zeros(len(data_pre_filter))
     peaks[peak_indexes_refined] = 1
 
@@ -613,7 +639,7 @@ def signal_specific_matched_filter(data, peak_indexes):
             robust_mean = robust_weighted_average(
                 stacked_beats
             )  # robust_weighted_average() under construction
-            matched_filter_out = convolve(robust_mean[::-1], data[ch, :], mode="full")
+            matched_filter_out = convolve(robust_mean[0][::-1], data[ch, :], mode="full")
             lag = round(len(robust_mean) / 2)
             data_enhanced[ch, :] = matched_filter_out[lag : sig_len + lag]
             data_enhanced[ch, :] = (
